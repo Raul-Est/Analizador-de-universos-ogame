@@ -33,10 +33,19 @@ def _o_menos_uno(valor: Optional[int]) -> int:
 class Contexto:
     """Estado de una sesión sobre un universo concreto. Al cambiar de universo se crea un Contexto nuevo."""
 
-    def __init__(self, universo: Universo, cliente: ClienteOgame, carpeta_cache: Optional[Path] = None):
+    def __init__(
+        self,
+        universo: Universo,
+        cliente: ClienteOgame,
+        carpeta_cache: Optional[Path] = None,
+        carpeta_estado: Optional[Path] = None,
+    ):
         self.universo = universo
         self.cliente = cliente
         self.carpeta_cache = carpeta_cache
+        self._cache_disco: Optional[dict] = None
+        self._cache_sucia = False
+        self.carpeta_estado = carpeta_estado
         self._cache: dict[Any, Any] = {}
 
     def _memo(self, clave: Any, obtener: Callable[[], Any]) -> Any:
@@ -68,6 +77,11 @@ class Contexto:
             lambda: n.parsear_highscore(self.cliente.get_json("highscore.xml", category=categoria, type=tipo)),
         )
 
+    def refrescar_listas(self) -> None:
+        """Olvida jugadores y alianzas en memoria para volver a descargarlos (p. ej. si aparece un jugador nuevo)."""
+        self._cache.pop("jugadores", None)
+        self._cache.pop("alianzas", None)
+
     def nombres_ranking(self, categoria: int) -> dict[int, Optional[str]]:
         origen = self.jugadores() if categoria == 1 else self.alianzas()
         return {e["id"]: e.get("name") for e in origen}
@@ -75,27 +89,50 @@ class Contexto:
     def detalle_jugador(self, pid: int) -> dict:
         return self._memo(("jugador", pid), lambda: self._detalle_con_disco(pid))
 
+    def _archivo_cache(self) -> Optional[Path]:
+        return self.carpeta_cache / "detalles_jugadores.json" if self.carpeta_cache else None
+
+    def _cargar_cache_disco(self) -> dict:
+        if self._cache_disco is None:
+            self._cache_disco = {}
+            archivo = self._archivo_cache()
+            if archivo and archivo.exists():
+                try:
+                    self._cache_disco = json.loads(archivo.read_text(encoding="utf-8"))
+                except ValueError:
+                    pass
+        return self._cache_disco
+
     def _detalle_con_disco(self, pid: int) -> dict:
-        """playerData.xml cambia poco: se reutiliza el fichero descargado durante `TTL_CACHE_SEGUNDOS`."""
-        ruta = self.carpeta_cache / f"jugador_{pid}.json" if self.carpeta_cache else None
-        if ruta and ruta.exists() and time.time() - ruta.stat().st_mtime < TTL_CACHE_SEGUNDOS:
-            try:
-                return json.loads(ruta.read_text(encoding="utf-8"))
-            except ValueError:
-                pass
+        """playerData.xml cambia poco: se reutiliza lo descargado durante `TTL_CACHE_SEGUNDOS`."""
+        cache = self._cargar_cache_disco()
+        entrada = cache.get(str(pid))
+        if entrada and time.time() - entrada["t"] < TTL_CACHE_SEGUNDOS:
+            return entrada["datos"]
         detalle = self.cliente.get_json("playerData.xml", id=pid)
-        if ruta:
-            ruta.parent.mkdir(parents=True, exist_ok=True)
-            ruta.write_text(json.dumps(detalle, ensure_ascii=False), encoding="utf-8")
+        cache[str(pid)] = {"t": time.time(), "datos": detalle}
+        self._cache_sucia = True
         return detalle
+
+    def guardar_cache(self) -> None:
+        """Escribe la caché de jugadores en un único fichero por universo (solo si hubo cambios)."""
+        archivo = self._archivo_cache()
+        if not archivo or not self._cache_sucia:
+            return
+        archivo.parent.mkdir(parents=True, exist_ok=True)
+        archivo.write_text(json.dumps(self._cache_disco, ensure_ascii=False), encoding="utf-8")
+        self._cache_sucia = False
 
     def detalles(self, pids: list[int]) -> Iterator[tuple[int, Optional[dict], Optional[str]]]:
         """Descarga el detalle de cada jugador. Devuelve (id, detalle, error) sin detener el proceso por fallos individuales."""
-        for pid in pids:
-            try:
-                yield pid, self.detalle_jugador(pid), None
-            except ErrorApi as exc:
-                yield pid, None, str(exc)
+        try:
+            for pid in pids:
+                try:
+                    yield pid, self.detalle_jugador(pid), None
+                except ErrorApi as exc:
+                    yield pid, None, str(exc)
+        finally:
+            self.guardar_cache()
 
     def miembros_alianza(self, alianza_id: int) -> list[dict]:
         """Jugadores de una alianza con puntos militares y naves, ordenados por naves y luego por puntos."""
@@ -108,7 +145,7 @@ class Contexto:
             filas.append({
                 "id": j["id"],
                 "nombre": j["name"],
-                "estado": j["status"],
+                "estado": n.describir_estado(j["status"]),
                 "puntos_militares": entrada.get("score"),
                 "naves": entrada.get("ships"),
             })

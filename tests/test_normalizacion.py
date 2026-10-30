@@ -33,6 +33,22 @@ class NormalizacionTest(unittest.TestCase):
         self.assertFalse(info["donut_galaxia"])
         self.assertTrue(n.parsear_servidor({"donutGalaxy": "1"})["donut_galaxia"])
 
+    def test_describir_estado(self):
+        self.assertEqual(n.describir_estado(""), "activo")
+        self.assertEqual(n.describir_estado("I"), "inactivo largo (28+ días)")
+        self.assertEqual(n.describir_estado("vI"), "vacaciones, inactivo largo (28+ días)")
+
+    def test_nuevos_inactivos_excluye_vacaciones_y_ya_inactivos(self):
+        jugadores = [
+            {"id": 1, "name": "ya", "status": "I", "alliance": None},
+            {"id": 2, "name": "nuevo", "status": "i", "alliance": None},
+            {"id": 3, "name": "vacas", "status": "vi", "alliance": None},
+            {"id": 4, "name": "activo", "status": "", "alliance": None},
+            {"id": 5, "name": "nuevo2", "status": "I", "alliance": None},
+        ]
+        nuevos = n.nuevos_inactivos({1}, jugadores)
+        self.assertEqual([j["id"] for j in nuevos], [2, 5])
+
     def test_parsear_planetas_y_lunas(self):
         detalle = {"planets": {"planet": [
             {"coords": "1:2:3", "moon": {"name": "Luna"}},

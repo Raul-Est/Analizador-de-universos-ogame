@@ -3,8 +3,8 @@
 from .registro import Parametro, Resultado, consulta
 
 CATEGORIAS = {1: "jugadores", 2: "alianzas"}
-TIPOS = {0: "economía", 1: "investigación", 2: "flota", 3: "militar", 4: "militar construido",
-         5: "militar destruido", 6: "honor", 7: "pérdidas"}
+TIPOS = {0: "total", 1: "economía", 2: "investigación", 3: "militar", 4: "militar construido",
+         5: "militar destruido", 6: "militar perdido", 7: "honor"}
 
 
 @consulta(
@@ -12,8 +12,8 @@ TIPOS = {0: "economía", 1: "investigación", 2: "flota", 3: "militar", 4: "mili
     "Ranking del highscore por categoría y tipo",
     (
         Parametro("categoria", "1 = jugadores, 2 = alianzas", int, 1, opciones=(1, 2)),
-        Parametro("tipo", "0 economía, 1 investigación, 2 flota, 3 militar, 4-7 otros", int, 3,
-                  opciones=tuple(TIPOS)),
+        Parametro("tipo", "0 total, 1 economía, 2 investigación, 3 militar, 4 construido, 5 destruido, 6 perdido, 7 honor",
+                  int, 3, opciones=tuple(TIPOS)),
         Parametro("limite", "Número de posiciones a mostrar", int, 200),
     ),
 )

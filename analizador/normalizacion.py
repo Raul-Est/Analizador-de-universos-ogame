@@ -33,6 +33,38 @@ def entero(valor: Any) -> Optional[int]:
         return None
 
 
+ESTADOS = {"a": "admin", "v": "vacaciones", "b": "bloqueado", "i": "inactivo (7 días)", "I": "inactivo largo (28+ días)"}
+
+
+def describir_estado(codigo: Optional[str]) -> str:
+    """Traduce el estado de players.xml (letras combinables, p. ej. 'vI') a texto. Vacío = activo."""
+    if not codigo:
+        return "activo"
+    return ", ".join(ESTADOS.get(letra, letra) for letra in codigo)
+
+
+def es_inactivo(codigo: Optional[str]) -> bool:
+    return any(letra in (codigo or "") for letra in "iI")
+
+
+def en_vacaciones(codigo: Optional[str]) -> bool:
+    return "v" in (codigo or "")
+
+
+def nuevos_inactivos(anteriores: set[int], jugadores: list[dict]) -> list[dict]:
+    """Jugadores inactivos ahora que no lo eran en la captura anterior, sin los que están en vacaciones."""
+    return [
+        j for j in jugadores
+        if es_inactivo(j["status"]) and not en_vacaciones(j["status"]) and j["id"] not in anteriores
+    ]
+
+
+def marca_tiempo(data: Any) -> Optional[int]:
+    """Momento (Unix) en que la API generó la respuesta; está en `@attributes.timestamp`."""
+    attrs = data.get("@attributes") if isinstance(data, dict) else None
+    return entero(attrs.get("timestamp")) if isinstance(attrs, dict) else None
+
+
 def parsear_servidor(data: dict) -> dict:
     """Resumen del universo a partir de serverData.xml."""
     return {

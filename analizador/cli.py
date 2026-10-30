@@ -14,12 +14,20 @@ from .exportar import FORMATOS, formatos_para, guardar
 
 
 def crear_contexto(universo: Universo, pausa: float) -> Contexto:
-    return Contexto(universo, ClienteOgame(universo, pausa_segundos=pausa), CARPETA_SALIDA / ".cache" / universo.clave)
+    return Contexto(
+        universo,
+        ClienteOgame(universo, pausa_segundos=pausa),
+        CARPETA_SALIDA / ".cache" / universo.clave,
+        CARPETA_SALIDA / ".estado" / universo.clave,
+    )
 
 
 def ejecutar(contexto: Contexto, consulta_: Consulta, crudos: dict[str, Any]) -> Resultado:
     valores = obtener_parametros(consulta_, crudos)
-    return consulta_.funcion(contexto, **valores)
+    try:
+        return consulta_.funcion(contexto, **valores)
+    finally:
+        contexto.guardar_cache()
 
 
 def mostrar(resultado: Resultado) -> None:
@@ -50,6 +58,8 @@ def _pedir(parametro: Parametro) -> Any:
 
 
 def _exportar_interactivo(resultado: Resultado, consulta_: Consulta, universo: Universo, carpeta) -> None:
+    if not resultado.datos:
+        return
     formatos = formatos_para(resultado.datos)
     if len(formatos) == 1:
         return
@@ -65,7 +75,11 @@ def menu(contexto: Contexto, configuracion: Configuracion) -> Universo:
     while True:
         print(f"\n=== Analizador de universos OGame - {universo} ===")
         for i, id_ in enumerate(ids, 1):
-            print(f"  {i:>2}. {CONSULTAS[id_].descripcion}")
+            print(f"  {i:>2}. {CONSULTAS[id_].descripcion}  [{id_}]")
+            if i % 5 == 0:
+                print()
+        if len(ids) % 5:
+            print()
         print("   u. Cambiar de universo")
         print("   q. Salir")
         opcion = input("Elige una opción: ").strip().lower()

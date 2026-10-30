@@ -7,12 +7,14 @@ Si el universo no existe o no está abierto, la web responde con HTML (código 2
 | Endpoint | Parámetros | Contenido |
 | --- | --- | --- |
 | `serverData.xml` | — | Configuración: `galaxies`, `systems`, `donutGalaxy`, `donutSystem`, `speed`, `version` |
-| `players.xml` | — | Jugadores: `player` con `@attributes` (`id`, `name`, `status`, `alliance`) |
+| `players.xml` | — | Jugadores: `player` con `@attributes` (`id`, `name`, `status`, `alliance`). `status` combina letras: vacío activo, `i` inactivo 7 días, `I` inactivo 28+ días, `v` vacaciones, `b` bloqueado, `a` admin |
 | `alliances.xml` | — | Alianzas: `alliance` con `id`, `name`, `tag` |
 | `highscore.xml` | `category` (1 jugadores, 2 alianzas), `type` (0-7) | Posiciones con `position`, `score`, `ships` |
 | `playerData.xml` | `id` | Planetas (`planets.planet`) con `coords` y `moon` |
 
-Tipos de highscore: 0 economía, 1 investigación, 2 flota, 3 militar, 4 militar construido, 5 militar destruido, 6 honor, 7 pérdidas.
+Tipos de highscore: 0 total, 1 economía, 2 investigación, 3 militar, 4 militar construido, 5 militar destruido, 6 militar perdido, 7 honor (puede ser negativo). Cada respuesta incluye en `@attributes` un `timestamp` Unix con el momento en que se generó.
+
+El highscore se regenera **cada hora** (cabeceras `Last-Modified` y `Expires = Last-Modified + 1 h`); `players.xml` y `serverData.xml` cada 12-24 h. El seguimiento en vivo se apoya en esto: calcula cuándo toca la siguiente actualización y la descarga en cuanto cambia el `timestamp`.
 
 Lobby (lista de universos, fuera de la API del universo): `https://lobby.ogame.gameforge.com/api/servers`.
 
