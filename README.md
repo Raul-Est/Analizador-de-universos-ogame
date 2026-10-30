@@ -16,7 +16,7 @@ Edita `universo.json`:
 {
   "idioma": "es",
   "numero": 268,
-  "pausa_segundos": 1.0
+  "pausa_segundos": 0.1
 }
 ```
 
@@ -41,22 +41,22 @@ python -m analizador ejecutar ranking --param categoria=1 --param tipo=3 --param
 python -m analizador ejecutar distancia --param origen=1:1:1 --param destino=6:499:1
 ```
 
-Los ficheros exportados se guardan en `output/<idioma>-<numero>/`.
+Los ficheros exportados se guardan en `output/<idioma>-<numero>/` con la fecha en el nombre (por ejemplo `ranking_30-10-2026.csv`); en Markdown el título también lleva la fecha (`30/10/2026`). `pausa_segundos` es el intervalo mínimo entre peticiones (0,25 s por defecto); si la API responde 503/429 el programa se ralentiza solo (la API aguanta ~1 petición/s de forma sostenida). Los datos de jugadores se guardan en `output/.cache/` durante 6 horas, así que repetir consultas es casi instantáneo (borra esa carpeta para forzar la descarga).
 
 ## Consultas disponibles
 
-| Id | Qué hace |
-| --- | --- |
-| `servidor` | Galaxias, sistemas y si el universo es circular |
-| `universos_lobby` | Lista de universos del lobby (filtro por idioma) |
-| `jugadores` / `alianzas` | Listados completos |
-| `ranking` | Highscore por categoría (jugadores/alianzas) y tipo |
-| `alianza_miembros` | Miembros de una alianza con puntos y naves |
-| `jugador_detalle` | Planetas y lunas de un jugador |
-| `top_lunas` | Jugadores del top con lunas y sus coordenadas |
-| `alianza_top_lunas` | Coordenadas de lunas de una alianza |
-| `distribucion_galaxias` | Planetas del top de flota por galaxia |
-| `distancia` | Distancia en galaxias y sistemas, respetando el donut |
+| Id                       | Qué hace                                              |
+| ------------------------ | ----------------------------------------------------- |
+| `servidor`               | Galaxias, sistemas y si el universo es circular       |
+| `universos_lobby`        | Lista de universos del lobby (filtro por idioma)      |
+| `jugadores` / `alianzas` | Listados completos                                    |
+| `ranking`                | Highscore por categoría (jugadores/alianzas) y tipo   |
+| `alianza_miembros`       | Miembros de una alianza con puntos y naves            |
+| `jugador_detalle`        | Planetas y lunas de un jugador                        |
+| `top_lunas`              | Jugadores del top con lunas y sus coordenadas         |
+| `alianza_top_lunas`      | Coordenadas de lunas de una alianza                   |
+| `distribucion_galaxias`  | Planetas del top de flota por galaxia                 |
+| `distancia`              | Distancia en galaxias y sistemas, respetando el donut |
 
 ## Añadir una consulta nueva
 
@@ -85,3 +85,9 @@ python -m unittest
 ```
 
 Los tests no usan la red.
+
+## Iniciar el programa
+
+& "C:\Users\siemp\AppData\Local\Programs\Python\Python312\python.exe" -m analizador
+
+& "C:\Users\siemp\AppData\Local\Programs\Python\Python312\python.exe" -m analizador

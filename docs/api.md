@@ -19,5 +19,5 @@ Lobby (lista de universos, fuera de la API del universo): `https://lobby.ogame.g
 ## Notas
 
 - OGame devuelve un objeto en lugar de una lista cuando solo hay un elemento. Por eso se normaliza con `elementos()` en `analizador/normalizacion.py`.
-- `playerData.xml` tiene una petición por jugador. Consultar el top 200 hace hasta 200 peticiones, por eso hay una pausa configurable (`pausa_segundos`).
+- `playerData.xml` tiene una petición por jugador. Consultar el top 200 hace hasta 200 peticiones, por eso hay una pausa mínima configurable (`pausa_segundos`), un ajuste automático ante 503/429 (límite sostenido ≈ 1 petición/s) y una caché en disco de 6 horas.
 - Universos circulares (donut): la distancia entre galaxias o sistemas es la menor de las dos vueltas posibles (`analizador/geometria.py`).

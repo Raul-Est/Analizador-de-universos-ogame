@@ -1,5 +1,6 @@
 """Cliente HTTP para la API pública de OGame: pausas entre peticiones y reintentos."""
 
+import threading
 import time
 from typing import Any, Optional
 
@@ -7,8 +8,9 @@ import requests
 
 from .config import Universo
 
-REINTENTOS = 3
+REINTENTOS = 5
 ESTADOS_REINTENTABLES = {429, 500, 502, 503, 504}
+MAX_PAUSA = 2.0
 
 
 class ErrorApi(Exception):
@@ -19,7 +21,7 @@ class ClienteOgame:
     def __init__(
         self,
         universo: Universo,
-        pausa_segundos: float = 1.0,
+        pausa_segundos: float = 0.25,
         timeout: float = 15.0,
         sesion: Optional[requests.Session] = None,
     ):
@@ -28,7 +30,9 @@ class ClienteOgame:
         self.timeout = timeout
         self._sesion = sesion or requests.Session()
         self._sesion.headers["User-Agent"] = "analizador-universos-ogame/1.0"
-        self._ultima_peticion = 0.0
+        self._pausa_actual = pausa_segundos
+        self._proxima_peticion = 0.0
+        self._cerrojo = threading.Lock()
 
     def get_json(self, ruta: str, **params: Any) -> Any:
         """Consulta `<api del universo>/<ruta>` pidiendo JSON (toJson=1)."""
@@ -46,19 +50,34 @@ class ClienteOgame:
             else:
                 if resp.status_code in ESTADOS_REINTENTABLES:
                     ultimo_error = ErrorApi(f"HTTP {resp.status_code} en {url}")
+                    self._ralentizar()
                 elif resp.status_code >= 400:
                     raise ErrorApi(f"HTTP {resp.status_code} en {url}")
                 else:
+                    self._acelerar()
                     return self._decodificar(resp, url)
             if intento < REINTENTOS:
-                time.sleep(2 * intento)
+                time.sleep(0.5 * intento)
         raise ultimo_error
 
+    def _ralentizar(self) -> None:
+        """La API limita el ritmo con 503/429: se duplica la pausa (máx. 2 s)."""
+        with self._cerrojo:
+            self._pausa_actual = min(max(self._pausa_actual * 2, 0.5), MAX_PAUSA)
+
+    def _acelerar(self) -> None:
+        """Tras una respuesta correcta se vuelve poco a poco a la pausa configurada."""
+        with self._cerrojo:
+            self._pausa_actual = max(self.pausa_segundos, self._pausa_actual * 0.9)
+
     def _esperar_pausa(self) -> None:
-        transcurrido = time.monotonic() - self._ultima_peticion
-        if transcurrido < self.pausa_segundos:
-            time.sleep(self.pausa_segundos - transcurrido)
-        self._ultima_peticion = time.monotonic()
+        """Reserva un hueco de tiempo; seguro entre hilos."""
+        with self._cerrojo:
+            ahora = time.monotonic()
+            hueco = max(ahora, self._proxima_peticion)
+            self._proxima_peticion = hueco + self._pausa_actual
+        if hueco > ahora:
+            time.sleep(hueco - ahora)
 
     @staticmethod
     def _decodificar(resp: requests.Response, url: str) -> Any:

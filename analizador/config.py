@@ -10,7 +10,7 @@ CARPETA_SALIDA = RAIZ / "output"
 
 DEFAULT_IDIOMA = "es"
 DEFAULT_NUMERO = 268
-DEFAULT_PAUSA = 1.0
+DEFAULT_PAUSA = 0.25
 
 
 @dataclass(frozen=True)

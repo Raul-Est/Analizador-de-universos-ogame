@@ -4,6 +4,7 @@ import csv
 import json
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 from analizador.consultas.registro import CONSULTAS, Parametro, Resultado, consulta, obtener_parametros
@@ -41,12 +42,15 @@ class ExportarTest(unittest.TestCase):
         res = Resultado(datos=filas, titulo="Prueba", resumen=["Total: 1"])
         with tempfile.TemporaryDirectory() as tmp:
             carpeta = Path(tmp)
-            csv_ruta = guardar(res, "csv", carpeta, "t")
+            csv_ruta = guardar(res, "csv", carpeta, "t", fecha=date(2026, 10, 30))
+            self.assertEqual(csv_ruta.name, "t_30-10-2026.csv")
             with csv_ruta.open(encoding="utf-8-sig") as fh:
                 fila = next(csv.DictReader(fh))
             self.assertEqual(fila["coordenadas"], "1:2:3;4:5:6")
-            md_ruta = guardar(res, "md", carpeta, "t")
-            self.assertIn("A\\|B", md_ruta.read_text(encoding="utf-8"))
+            md_ruta = guardar(res, "md", carpeta, "t", fecha=date(2026, 10, 30))
+            texto_md = md_ruta.read_text(encoding="utf-8")
+            self.assertIn("A\\|B", texto_md)
+            self.assertIn("# Prueba (30/10/2026)", texto_md)
             json_ruta = guardar(res, "json", carpeta, "t")
             self.assertEqual(json.loads(json_ruta.read_text(encoding="utf-8")), filas)
 

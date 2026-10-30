@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .cliente import ClienteOgame, ErrorApi
-from .config import Configuracion, Universo, cargar_configuracion
+from .config import CARPETA_SALIDA, Configuracion, Universo, cargar_configuracion
 from .consultas import CONSULTAS
 from .consultas.registro import Consulta, Parametro, Resultado, obtener_parametros
 from .contexto import Contexto
@@ -14,7 +14,7 @@ from .exportar import FORMATOS, formatos_para, guardar
 
 
 def crear_contexto(universo: Universo, pausa: float) -> Contexto:
-    return Contexto(universo, ClienteOgame(universo, pausa_segundos=pausa))
+    return Contexto(universo, ClienteOgame(universo, pausa_segundos=pausa), CARPETA_SALIDA / ".cache" / universo.clave)
 
 
 def ejecutar(contexto: Contexto, consulta_: Consulta, crudos: dict[str, Any]) -> Resultado:

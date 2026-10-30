@@ -1,10 +1,15 @@
 """Contexto de ejecución: universo activo, cliente HTTP y caché de los datos ya descargados."""
 
+import json
+import time
+from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
 from . import normalizacion as n
 from .cliente import ClienteOgame, ErrorApi
 from .config import Universo
+
+TTL_CACHE_SEGUNDOS = 6 * 3600
 
 
 def _coincidencias(lista: list[dict], texto: str) -> list[dict]:
@@ -28,9 +33,10 @@ def _o_menos_uno(valor: Optional[int]) -> int:
 class Contexto:
     """Estado de una sesión sobre un universo concreto. Al cambiar de universo se crea un Contexto nuevo."""
 
-    def __init__(self, universo: Universo, cliente: ClienteOgame):
+    def __init__(self, universo: Universo, cliente: ClienteOgame, carpeta_cache: Optional[Path] = None):
         self.universo = universo
         self.cliente = cliente
+        self.carpeta_cache = carpeta_cache
         self._cache: dict[Any, Any] = {}
 
     def _memo(self, clave: Any, obtener: Callable[[], Any]) -> Any:
@@ -67,7 +73,21 @@ class Contexto:
         return {e["id"]: e.get("name") for e in origen}
 
     def detalle_jugador(self, pid: int) -> dict:
-        return self._memo(("jugador", pid), lambda: self.cliente.get_json("playerData.xml", id=pid))
+        return self._memo(("jugador", pid), lambda: self._detalle_con_disco(pid))
+
+    def _detalle_con_disco(self, pid: int) -> dict:
+        """playerData.xml cambia poco: se reutiliza el fichero descargado durante `TTL_CACHE_SEGUNDOS`."""
+        ruta = self.carpeta_cache / f"jugador_{pid}.json" if self.carpeta_cache else None
+        if ruta and ruta.exists() and time.time() - ruta.stat().st_mtime < TTL_CACHE_SEGUNDOS:
+            try:
+                return json.loads(ruta.read_text(encoding="utf-8"))
+            except ValueError:
+                pass
+        detalle = self.cliente.get_json("playerData.xml", id=pid)
+        if ruta:
+            ruta.parent.mkdir(parents=True, exist_ok=True)
+            ruta.write_text(json.dumps(detalle, ensure_ascii=False), encoding="utf-8")
+        return detalle
 
     def detalles(self, pids: list[int]) -> Iterator[tuple[int, Optional[dict], Optional[str]]]:
         """Descarga el detalle de cada jugador. Devuelve (id, detalle, error) sin detener el proceso por fallos individuales."""

@@ -2,8 +2,9 @@
 
 import csv
 import json
+from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from .consultas.registro import Resultado
 
@@ -32,11 +33,13 @@ def _tabla_md(filas: list[dict]) -> str:
     return "\n".join(lineas) + "\n"
 
 
-def guardar(resultado: Resultado, formato: str, carpeta: Path, nombre: str) -> Path:
+def guardar(resultado: Resultado, formato: str, carpeta: Path, nombre: str, fecha: Optional[date] = None) -> Path:
+    """Guarda el resultado como `<nombre>_dd-mm-aaaa.<formato>`; el título del .md lleva la fecha dd/mm/aaaa."""
     if formato not in formatos_para(resultado.datos):
         raise ValueError(f"El formato {formato} no es válido para estos datos")
+    fecha = fecha or date.today()
     carpeta.mkdir(parents=True, exist_ok=True)
-    ruta = carpeta / f"{nombre}.{formato}"
+    ruta = carpeta / f"{nombre}_{fecha:%d-%m-%Y}.{formato}"
 
     if formato == "json":
         ruta.write_text(json.dumps(resultado.datos, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -49,7 +52,7 @@ def guardar(resultado: Resultado, formato: str, carpeta: Path, nombre: str) -> P
             for f in filas:
                 escritor.writerow({k: ";".join(map(str, v)) if isinstance(v, list) else v for k, v in f.items()})
     else:
-        cuerpo = [f"# {resultado.titulo}", ""]
+        cuerpo = [f"# {resultado.titulo} ({fecha:%d/%m/%Y})", ""]
         cuerpo += [f"- {linea}" for linea in resultado.resumen] + [""]
         cuerpo.append(_tabla_md(resultado.datos))
         ruta.write_text("\n".join(cuerpo), encoding="utf-8")
