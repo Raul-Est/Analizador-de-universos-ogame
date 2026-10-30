@@ -51,7 +51,7 @@ Los ficheros exportados se guardan en `output/<idioma>-<numero>/` con la fecha e
 | `universos_lobby`        | Lista de universos del lobby (filtro por idioma)      |
 | `jugadores`              | Todos los jugadores con estado y alianza              |
 | `jugadores_inactivos`    | Jugadores inactivos ahora (param. `incluir_vacaciones`) |
-| `jugadores_nuevos_inactivos` | Nuevos inactivos desde la última ejecución de esta consulta, sin los que están en vacaciones. Guarda la captura en `output/.estado/<universo>/` con una cabecera (universo, fecha) que se valida al leerla: si no coincide con el universo activo se descarta y se empieza de nuevo; la primera vez solo la crea |
+| `jugadores_nuevos_inactivos` | Nuevos inactivos desde la última ejecución de esta consulta, sin los que están en vacaciones. Guarda la captura en `output/.estado/<universo>/` con una cabecera (universo, fecha) que se valida al leerla: si no coincide con el universo activo se descarta y se empieza de nuevo; la primera vez solo la crea. Cada jugador incluye a la derecha todos sus planetas (`planetas`, `num_planetas`) y la lista se guarda también en `nuevos_inactivos_ultima_lista.json` |
 | `alianzas`               | Listado completo de alianzas                          |
 | `ranking`                | Highscore por categoría (jugadores/alianzas) y tipo   |
 | `alianza_miembros`       | Miembros de una alianza con puntos y naves            |

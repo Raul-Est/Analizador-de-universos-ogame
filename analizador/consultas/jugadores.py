@@ -8,6 +8,24 @@ from ..normalizacion import describir_estado, en_vacaciones, es_inactivo, nombre
 from .registro import Parametro, Resultado, consulta
 
 ARCHIVO_INACTIVOS = "inactivos_ultima_captura.json"
+ARCHIVO_LISTA_NUEVOS = "nuevos_inactivos_ultima_lista.json"
+
+
+def _anadir_planetas(contexto, filas):
+    """Añade a cada fila 'planetas' (coordenadas separadas por coma) y 'num_planetas'. Devuelve los fallos."""
+    por_id = {f["id"]: f for f in filas}
+    for f in filas:
+        f["planetas"] = ""
+        f["num_planetas"] = 0
+    fallos = 0
+    for pid, detalle, error in contexto.detalles(list(por_id)):
+        if error or detalle is None:
+            fallos += 1
+            continue
+        coords = [p["coords"] for p in parsear_planetas(detalle)]
+        por_id[pid]["planetas"] = ", ".join(coords)
+        por_id[pid]["num_planetas"] = len(coords)
+    return fallos
 
 
 def _filas(contexto, jugadores):
@@ -92,11 +110,18 @@ def jugadores_nuevos_inactivos(contexto):
     nuevos = nuevos_inactivos(set(anterior["inactivos"]), jugadores_)
     desde = datetime.fromisoformat(anterior["fecha"]).strftime("%d/%m/%Y %H:%M")
     filas = _filas(contexto, nuevos)
-    return Resultado(
-        datos=filas,
-        titulo=f"Nuevos inactivos en {clave} desde {desde}",
-        resumen=[f"Nuevos inactivos (sin vacaciones): {len(filas)}", "Captura actualizada para la próxima comparación."],
-    )
+    sin_planetas = _anadir_planetas(contexto, filas)
+    if archivo:
+        lista = {"universo": clave, "fecha": datetime.now().isoformat(timespec="seconds"), "desde": anterior["fecha"], "jugadores": filas}
+        (archivo.parent / ARCHIVO_LISTA_NUEVOS).write_text(json.dumps(lista, ensure_ascii=False, indent=2), encoding="utf-8")
+    resumen = [
+        f"Nuevos inactivos (sin vacaciones): {len(filas)}",
+        f"Planetas a la derecha de cada jugador: {sum(f['num_planetas'] for f in filas)} en total",
+    ]
+    if sin_planetas:
+        resumen.append(f"No se pudieron leer los planetas de {sin_planetas} jugador(es).")
+    resumen.append("Captura y lista actualizadas para la próxima comparación.")
+    return Resultado(datos=filas, titulo=f"Nuevos inactivos en {clave} desde {desde}", resumen=resumen)
 
 
 @consulta("alianzas", "Lista de todas las alianzas del universo")

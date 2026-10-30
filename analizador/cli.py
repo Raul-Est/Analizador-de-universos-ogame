@@ -73,9 +73,12 @@ def menu(contexto: Contexto, configuracion: Configuracion) -> Universo:
     universo = contexto.universo
     ids = list(CONSULTAS)
     while True:
-        print(f"\n=== Analizador de universos OGame - {universo} ===")
-        for i, id_ in enumerate(ids, 1):
-            print(f"  {i:>2}. {CONSULTAS[id_].descripcion}  [{id_}]")
+        titulo = f"=== Analizador de universos OGame - {universo} ==="
+        lineas = [f"  {i:>2}. {CONSULTAS[id_].descripcion}  [{id_}]" for i, id_ in enumerate(ids, 1)]
+        ancho = max(len(linea) for linea in lineas)
+        print(f"\n{titulo.center(ancho).rstrip()}\n")
+        for i, (id_, linea) in enumerate(zip(ids, lineas), 1):
+            print(linea)
             if i % 5 == 0:
                 print()
         if len(ids) % 5:
