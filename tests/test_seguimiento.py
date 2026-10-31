@@ -9,7 +9,7 @@ from analizador import seguimiento as s
 
 
 def captura(ts, destruidos, perdidos):
-    return {"universo": "es-268", "timestamp": ts, "destruidos": destruidos, "perdidos": perdidos}
+    return {"universo": "es-268", "version": s.VERSION_CAPTURA, "timestamp": ts, "destruidos": destruidos, "perdidos": perdidos}
 
 
 class CambiosTest(unittest.TestCase):
@@ -46,6 +46,10 @@ class CapturaTest(unittest.TestCase):
             s.guardar_captura(archivo, captura(5, {1: 2}, {3: 4}))
             self.assertEqual(s.leer_captura(archivo, "es-268"), captura(5, {1: 2}, {3: 4}))
             self.assertIsNone(s.leer_captura(archivo, "de-279"))
+            antigua = {**captura(5, {1: 2}, {3: 4})}
+            del antigua["version"]
+            archivo.write_text(json.dumps(antigua), encoding="utf-8")
+            self.assertIsNone(s.leer_captura(archivo, "es-268"))
             archivo.write_text("no es json", encoding="utf-8")
             self.assertIsNone(s.leer_captura(archivo, "es-268"))
             self.assertIsNone(s.leer_captura(Path(tmp) / "no_existe.json", "es-268"))

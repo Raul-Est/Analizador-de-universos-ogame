@@ -15,8 +15,9 @@ from typing import Any, Callable, Optional
 from . import normalizacion as n
 from .cliente import ErrorApi
 
-TIPO_DESTRUIDOS = 5
-TIPO_PERDIDOS = 6
+TIPO_DESTRUIDOS = 6
+TIPO_PERDIDOS = 4
+VERSION_CAPTURA = 2  # las capturas anteriores usaban tipos de highscore equivocados (5 y 6)
 INTERVALO_API = 3600  # el highscore se regenera cada hora (Expires = Last-Modified + 1 h)
 MARGEN = 3  # segundos de cortesía tras la hora esperada
 SONDEO_ESPERA = 300  # comprobación de seguridad mientras se espera la próxima actualización
@@ -48,6 +49,7 @@ def descargar_captura(contexto) -> dict:
     perdidos = cliente.get_json("highscore.xml", category=1, type=TIPO_PERDIDOS)
     return {
         "universo": contexto.universo.clave,
+        "version": VERSION_CAPTURA,
         "timestamp": n.marca_tiempo(destruidos) or int(time.time()),
         "destruidos": _puntuaciones(destruidos),
         "perdidos": _puntuaciones(perdidos),
@@ -60,10 +62,11 @@ def leer_captura(archivo: Optional[Path], clave_universo: str) -> Optional[dict]
         return None
     try:
         datos = json.loads(archivo.read_text(encoding="utf-8"))
-        if datos.get("universo") != clave_universo:
+        if datos.get("universo") != clave_universo or datos.get("version") != VERSION_CAPTURA:
             return None
         return {
             "universo": clave_universo,
+            "version": VERSION_CAPTURA,
             "timestamp": int(datos["timestamp"]),
             "destruidos": {int(k): v for k, v in datos["destruidos"].items()},
             "perdidos": {int(k): v for k, v in datos["perdidos"].items()},

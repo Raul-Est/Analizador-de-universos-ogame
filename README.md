@@ -64,12 +64,37 @@ Los ficheros exportados se guardan en `output/<idioma>-<numero>/` con la fecha e
 
 ## Seguimiento en vivo
 
-La opción `seguimiento_vivo` abre una ventana con la hora y la fecha de cada actualización y, debajo, los jugadores que han **destruido** puntos militares (verde, `+`) y los que los han **perdido** (rojo, `-`), con su alianza. Se queda abierta y se actualiza sola hasta que la cierres; al cerrarla ofrece exportar los cambios recibidos.
+La opción `seguimiento_vivo` abre una ventana con la hora y la fecha de cada actualización y, debajo, los jugadores que han **destruido** puntos militares (verde, `+`, highscore tipo 6) y los que los han **perdido** (rojo, `-`, tipo 4), con su alianza. Se queda abierta y se actualiza sola hasta que la cierres; al cerrarla ofrece exportar los cambios recibidos.
 
 - La API de OGame regenera el highscore **cada hora**. El programa calcula cuándo toca la siguiente actualización, hace una comprobación de seguridad cada 5 minutos mientras espera y, al pasar la hora esperada, sondea cada 15 s hasta que cambia el `timestamp` y lo descarga al instante.
 - La última captura se guarda en `output/.estado/<universo>/puntos_ultima_captura.json` (con cabecera de universo). Al reabrir la ventana, si ha habido actualizaciones desde entonces, se muestran de inmediato; la primera vez hay que esperar a la siguiente actualización de la API.
 - Parámetro `top`: jugadores a mostrar en cada lado por actualización (10 por defecto).
 - Necesita `tkinter`, que viene con el instalador oficial de Python para Windows.
+
+## Qué es cada dato (columnas de las tablas)
+
+Referencia para futuras modificaciones. Mantenla actualizada al cambiar una tabla.
+
+**Tipos de highscore** (`category=1` jugadores, `2` alianzas): 0 total, 1 economía, 2 investigación, **3 militar** (con `ships` = número de naves; es el «top de flota»), **4 militar perdido**, **5 militar construido**, **6 militar destruido**, 7 honor. Se cumple militar (3) = construido (5) − perdido (4). Coincide con lo que muestra mmorpg-stat.eu.
+
+**Estados de jugador** (`status` de `players.xml`): vacío activo, `i` inactivo 7 días, `I` inactivo 28+ días, `v` vacaciones, `b` bloqueado, `a` admin.
+
+| Consulta | Columnas | Significado |
+| --- | --- | --- |
+| `jugadores`, `jugadores_inactivos` | `id`, `nombre`, `estado`, `alianza` | `estado` es el texto del `status`; `alianza` es la etiqueta (tag) o vacío |
+| `jugadores_nuevos_inactivos` | las anteriores + `planetas`, `num_planetas` | `planetas` son todas las coordenadas `G:S:P` del jugador separadas por coma (listas para atacar); `num_planetas` su recuento. Excluye jugadores en vacaciones |
+| `alianzas` | `id`, `name`, `tag` | Alianza, nombre y etiqueta |
+| `alianza_miembros` | `id`, `nombre`, `estado`, `puntos_militares`, `naves` | `puntos_militares` es el score del tipo 3; `naves` las naves de ese ranking |
+| `jugador_detalle` | `id`, `nombre`, `planetas[{coords, lunas}]` | `lunas` = lunas de ese planeta |
+| `top_lunas`, `alianza_top_lunas` | `id`, `nombre`, `lunas`, `coordenadas` | `lunas` = total de lunas del jugador; `coordenadas` = las de sus lunas |
+| `ranking` | `posicion`, `id`, `nombre`, `puntuacion`, `naves` | `puntuacion` según el tipo elegido; `naves` solo tiene sentido en el tipo 3 |
+| `distribucion_galaxias` | `galaxia`, `planetas` | Planetas de los N mejores del ranking militar (tipo 3) en cada galaxia; el resumen suma las naves del top |
+| `distancia` | `galaxia`, `planeta_a`, `planeta_b`, `sistemas`, `unidades` | Un par de planetas del mismo jugador y galaxia. `sistemas` = diferencia de sistemas (menor vuelta si hay donut); `unidades` = distancia de vuelo (2700 + 95 × sistemas; mismo sistema: 1000 + 5 × diferencia de planeta). Fórmula sin contrastar con el juego |
+| `servidor` | `idioma`, `numero`, `nombre`, `galaxias`, `sistemas`, `donut_galaxia`, `donut_sistema`, `velocidad_economia`, `velocidad_flota_guerra`, `factor_escombros`, `tamano_campos_bonus` | Configuración del universo (`serverData.xml`) |
+| `universos_lobby` | `idioma`, `numero`, `nombre`, `jugadores`, `online`, `abierto`, `cerrado` | Datos del lobby de Gameforge |
+| `seguimiento_vivo` (exportación) | `fecha`, `jugador`, `alianza`, `tipo`, `puntos` | `tipo` = `destruidos` (puntos > 0, tipo 6) o `perdidos` (puntos < 0, tipo 4); `puntos` = variación entre dos actualizaciones del highscore |
+
+**Archivos de estado** (`output/.estado/<universo>/`, ignorados por git): `inactivos_ultima_captura.json` (cabecera `universo`, `fecha`, lista `inactivos`), `nuevos_inactivos_ultima_lista.json` (última lista de nuevos inactivos con planetas) y `puntos_ultima_captura.json` (cabecera `universo`, `version`, `timestamp`; si cambia el significado de los datos, sube `VERSION_CAPTURA` en `seguimiento.py` para descartar las antiguas). Caché de detalles: `output/.cache/<universo>/detalles_jugadores.json`.
 
 ## Añadir una consulta nueva
 

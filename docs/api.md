@@ -12,7 +12,7 @@ Si el universo no existe o no está abierto, la web responde con HTML (código 2
 | `highscore.xml` | `category` (1 jugadores, 2 alianzas), `type` (0-7) | Posiciones con `position`, `score`, `ships` |
 | `playerData.xml` | `id` | Planetas (`planets.planet`) con `coords` y `moon` |
 
-Tipos de highscore: 0 total, 1 economía, 2 investigación, 3 militar, 4 militar construido, 5 militar destruido, 6 militar perdido, 7 honor (puede ser negativo). Cada respuesta incluye en `@attributes` un `timestamp` Unix con el momento en que se generó.
+Tipos de highscore: 0 total, 1 economía, 2 investigación, 3 militar, 4 militar perdido, 5 militar construido, 6 militar destruido, 7 honor (puede ser negativo). Comprobado con datos reales: militar (3) = construido (5) − perdido (4). Cada respuesta incluye en `@attributes` un `timestamp` Unix con el momento en que se generó.
 
 El highscore se regenera **cada hora** (cabeceras `Last-Modified` y `Expires = Last-Modified + 1 h`); `players.xml` y `serverData.xml` cada 12-24 h. El seguimiento en vivo se apoya en esto: calcula cuándo toca la siguiente actualización y la descarga en cuanto cambia el `timestamp`.
 
