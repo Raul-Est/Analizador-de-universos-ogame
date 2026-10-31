@@ -2,6 +2,7 @@
 
 import csv
 import json
+import re
 from datetime import date
 from pathlib import Path
 from typing import Any, Optional
@@ -31,6 +32,11 @@ def _tabla_md(filas: list[dict]) -> str:
     for f in filas:
         lineas.append("| " + " | ".join(_celda_md(f.get(c)) for c in columnas) + " |")
     return "\n".join(lineas) + "\n"
+
+
+def nombre_seguro(texto: str, defecto: str = "sin_nombre") -> str:
+    """Texto apto para un nombre de archivo (sin caracteres prohibidos en Windows)."""
+    return re.sub(r"[^\w-]+", "_", texto or "").strip("_") or defecto
 
 
 def guardar(resultado: Resultado, formato: str, carpeta: Path, nombre: str, fecha: Optional[date] = None) -> Path:

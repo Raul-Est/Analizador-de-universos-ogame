@@ -57,6 +57,11 @@ def _pedir(parametro: Parametro) -> Any:
         return respuesta
 
 
+def _carpeta_exportacion(resultado: Resultado, base: Path, universo: Universo) -> Path:
+    carpeta = base / universo.clave
+    return carpeta / resultado.subcarpeta if resultado.subcarpeta else carpeta
+
+
 def _exportar_interactivo(resultado: Resultado, consulta_: Consulta, universo: Universo, carpeta) -> None:
     if not resultado.datos:
         return
@@ -65,7 +70,7 @@ def _exportar_interactivo(resultado: Resultado, consulta_: Consulta, universo: U
         return
     eleccion = input(f"Exportar a ({'/'.join(formatos)}) o Enter para no exportar: ").strip().lower()
     if eleccion in formatos:
-        ruta = guardar(resultado, eleccion, carpeta / universo.clave, consulta_.id)
+        ruta = guardar(resultado, eleccion, _carpeta_exportacion(resultado, carpeta, universo), resultado.nombre_archivo or consulta_.id)
         print(f"Guardado en {ruta}")
 
 
@@ -164,9 +169,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             mostrar(resultado)
             if args.formato:
                 carpeta = (
-                    configuracion.carpeta_salida / universo.clave if not args.carpeta else Path(args.carpeta)
+                    _carpeta_exportacion(resultado, configuracion.carpeta_salida, universo)
+                    if not args.carpeta else Path(args.carpeta)
                 )
-                ruta = guardar(resultado, args.formato, carpeta, args.nombre or consulta_.id)
+                ruta = guardar(resultado, args.formato, carpeta, args.nombre or resultado.nombre_archivo or consulta_.id)
                 print(f"Guardado en {ruta}")
             return 0
         menu(contexto, configuracion)

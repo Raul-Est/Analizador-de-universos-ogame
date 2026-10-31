@@ -61,6 +61,8 @@ Los ficheros exportados se guardan en `output/<idioma>-<numero>/` con la fecha e
 | `distribucion_galaxias`  | Planetas de los N mejores del ranking militar por galaxia |
 | `seguimiento_vivo`       | **Ventana en vivo** con los puntos militares destruidos (verde) y perdidos (rojo) en cada actualización del highscore |
 | `distancia`              | Distancia entre los planetas de un jugador por galaxia (donut) |
+| `informe_espionaje`      | **Formulario web local**: pegas un informe de espionaje, se ordena en tablas, se guarda y se exporta a json/csv/md |
+| `ultima_flota`           | Última flota conocida de un jugador (cabecera, naves y resto de secciones) según los informes guardados |
 
 ## Seguimiento en vivo
 
@@ -96,6 +98,21 @@ Referencia para futuras modificaciones. Mantenla actualizada al cambiar una tabl
 | `seguimiento_vivo` (exportación) | `fecha`, `jugador`, `alianza`, `tipo`, `puntos` | `tipo` = `destruidos` (puntos > 0, tipo 6) o `perdidos` (puntos < 0, tipo 4); `puntos` = variación entre dos actualizaciones del highscore |
 
 **Archivos de estado** (`output/.estado/<universo>/`, ignorados por git): `inactivos_ultima_captura.json` (cabecera `universo`, `fecha`, lista `inactivos`), `nuevos_inactivos_ultima_lista.json` (última lista de nuevos inactivos con planetas) y `puntos_ultima_captura.json` (cabecera `universo`, `version`, `timestamp`; si cambia el significado de los datos, sube `VERSION_CAPTURA` en `seguimiento.py` para descartar las antiguas). Caché de detalles: `output/.cache/<universo>/detalles_jugadores.json`.
+
+## Informes de espionaje
+
+La opción `informe_espionaje` abre en el navegador un formulario local (`127.0.0.1`, puerto libre al azar; Ctrl+C en la consola para cerrarlo). Pega un informe de espionaje, pulsa **Analizar** y verás la cabecera y una tabla por sección. Los botones **Exportar JSON / CSV / MD** descargan el archivo y guardan una copia en `output/<universo>/flotas/espionaje_<jugador>_dd-mm-aaaa.<fmt>`.
+
+Todo lo relativo a flotas vive en una sola carpeta por universo, `output/<universo>/flotas/` (p. ej. `output/es-268/flotas/`): `informes.json`, las exportaciones del formulario y las de `ultima_flota`. La carpeta se crea sola si no existe; los informes que estuvieran en la antigua `output/espionaje/informes.json` se mueven allí automáticamente al primer uso.
+
+- El lector (`analizador/espionaje.py`) acepta el texto tal como se copia de la página del juego (con la línea de título, imágenes, `Jugador:  Nombre(ph)` en una línea y la sección pegada al primer dato, p. ej. `FlotasNave pequeña de carga`) y también el formato anterior con cada dato en su línea.
+- De la línea de título `Informe de espionaje en Luna Nombre [G:S:P] dd.mm.aaaa hh:mm:ss` se guardan en la cabecera `Coordenadas`, `Ubicación` (tipo y nombre: Planeta o Luna) y `Fecha del informe`. Son el dato clave para saber dónde está la flota; salen justo detrás de `Jugador` y `Estado`.
+- El lector es genérico: la cabecera admite cualquier `Clave:` (valor en la misma línea o en la siguiente) y cualquier sección nueva (p. ej. «Campo de escombros») se detecta sola, así que los informes pueden traer datos distintos. Las secciones ausentes (p. ej. sin «Defensa») simplemente no aparecen.
+- La línea entre paréntesis tras el jugador, como `(v ph)`, se guarda tal cual en `Estado`, sin interpretarla.
+- Los valores abreviados de la cabecera (`823,854M`, `7Mrd`) se guardan como texto; las cantidades de las secciones son números enteros.
+- Cada informe que analizas se guarda automáticamente en `output/<universo>/flotas/informes.json` (lista de `{jugador, guardado, informe}`, con fecha y hora). Si pegas uno idéntico al último guardado de ese jugador no se duplica. El archivo está ignorado por git.
+- `ultima_flota` (opción 16) pide el nombre del jugador (vale una parte, sin distinguir mayúsculas) y devuelve su informe más reciente (por la fecha del informe; si no la trae, por la de guardado): fecha de guardado, la cabecera tal como se muestra al analizar (`Jugador`, `Estado`, `Coordenadas`, `Ubicación`, `Fecha del informe`, `Clase`, `Recursos`, `Botín`, `Flotas`...), la lista de naves y después el resto de secciones del informe (recursos, campo de escombros, defensa, edificios, investigación y forma de vida). Al exportarla, el archivo se llama `ultima_flota_<jugador>_dd-mm-aaaa.<fmt>` (en `output/<universo>/flotas/`). Si el nombre coincide con varios jugadores, los lista; si no hay informes, lo indica.
+- Formato de exportación: JSON conserva la estructura `{cabecera, mensajes, secciones}`; CSV y MD usan una fila por dato con las columnas `seccion`, `concepto`, `valor`.
 
 ## Añadir una consulta nueva
 

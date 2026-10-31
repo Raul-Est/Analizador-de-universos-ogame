@@ -19,6 +19,8 @@ class Resultado:
     datos: Any
     titulo: str
     resumen: list[str] = field(default_factory=list)
+    nombre_archivo: Optional[str] = None  # al exportar sustituye al id de la consulta (p. ej. incluye el jugador)
+    subcarpeta: Optional[str] = None  # al exportar va dentro de output/<universo>/<subcarpeta>
 
 
 @dataclass(frozen=True)
