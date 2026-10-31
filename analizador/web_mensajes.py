@@ -19,18 +19,19 @@ table{{border-collapse:collapse;margin:8px 0 18px;width:100%}}td,th{{border:1px 
 td.t{{white-space:pre-wrap}}.err{{color:#ff6b6b}}.ok{{color:#6bff8f}}</style>
 <h1>Mensajes del juego</h1>
 <form method="post" action="/guardar">
-<textarea name="texto" placeholder="Pega aquí los mensajes (con su cabecera '- remitente dd.mm.aaaa hh:mm:ss')">{texto}</textarea><br>
+<textarea name="texto" placeholder="Pega la conversación completa (empieza por Imperio<jugador>, coordenadas y bloques nombre+fecha)">{texto}</textarea><br>
 <button>Guardar</button></form>{resultado}"""
 
 
 def _tabla(mensajes: list[dict]) -> str:
     filas = "".join(
         f"<tr><td>{html.escape(m['fecha'].replace('T', ' '))}</td><td>{html.escape(m['remitente'])}</td>"
-        f"<td>{html.escape(m['coords'])}</td><td>{html.escape(m['alianza'] or '')}</td>"
+        f"<td>{html.escape(m.get('destinatario') or '')}</td>"
+        f"<td>{html.escape(m['coords'] or '')}</td><td>{html.escape(m['alianza'] or '')}</td>"
         f"<td class='t'>{html.escape(m['texto'])}</td></tr>"
         for m in mensajes
     )
-    return ("<table><tr><th>Fecha</th><th>Remitente</th><th>Coords</th><th>Alianza</th><th>Mensaje</th></tr>"
+    return ("<table><tr><th>Fecha</th><th>Remitente</th><th>Destinatario</th><th>Coords</th><th>Alianza</th><th>Mensaje</th></tr>"
             f"{filas}</table>")
 
 

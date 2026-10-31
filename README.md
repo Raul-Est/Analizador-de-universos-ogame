@@ -116,11 +116,12 @@ Todo lo relativo a flotas vive en una sola carpeta por universo, `output/<univer
 
 ## Mensajes del juego
 
-`mensajes_formulario` abre en el navegador un formulario local (igual que el de espionaje). Pega uno o varios mensajes tal cual los copias del juego, empezando cada uno por su cabecera `- remitente dd.mm.aaaa hh:mm:ss`, y pulsa **Guardar**. Se guardan en `output/<universo>/mensajes/mensajes.json`:
+`mensajes_formulario` abre en el navegador un formulario local (igual que el de espionaje). Pega la conversación completa tal cual la copias del juego: se ignora lo anterior a `Imperio`, y cada línea con un nombre pegado a una fecha `dd.mm.aaaa hh:mm:ss` inicia un mensaje, cuyo texto llega hasta el siguiente nombre+fecha. También acepta mensajes individuales con su enlace de planeta. Pulsa **Guardar**. Se guardan en `output/<universo>/mensajes/mensajes.json`:
 
-- Fecha de recepción, remitente, alianza, texto del mensaje (sin enlaces).
-- Coordenadas del planeta principal del remitente (del enlace del pie) y, a partir de ellas, el **id del jugador**: primero se busca entre los jugadores con ese nombre; si ninguno tiene ese planeta (p. ej. cambió de nombre), se recorren todos los jugadores. Esa búsqueda completa hace una petición por jugador la primera vez (la caché de jugadores dura 6 h). Si no se encuentra, el mensaje queda sin id.
+- Fecha de recepción, remitente, destinatario cuando se puede determinar por los participantes de la conversación, alianza cuando el formato la incluye y texto del mensaje (sin enlaces).
+- Coordenadas del jugador indicado tras `Imperio` (o del enlace del mensaje individual) y, a partir de ellas, el **id del jugador**: primero se busca entre los jugadores con ese nombre; si ninguno tiene ese planeta (p. ej. cambió de nombre), se recorren todos los jugadores. Esa búsqueda completa hace una petición por jugador la primera vez (la caché de jugadores dura 6 h). Para los demás participantes de una conversación, se usa un nombre exacto y único; si no se puede resolver, el mensaje queda sin id.
 - Un mensaje repetido (misma fecha, remitente y texto) no se duplica.
+- `mensajes_jugador` muestra también el destinatario. Al volver a pegar una conversación ya guardada, se completan los destinatarios que faltaban en los registros antiguos, sin duplicar los mensajes.
 
 `mensajes_jugador` (pide nombre o parte del nombre, o id) devuelve sus mensajes ordenados por fecha. Como se vinculan por id, siguen apareciendo tras un cambio de nombre. Los mensajes sin id se buscan por el nombre con el que se recibieron.
 

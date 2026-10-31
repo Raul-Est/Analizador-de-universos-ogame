@@ -16,18 +16,28 @@ FORMATO_FECHA = "%d.%m.%Y %H:%M:%S"
 _cerrojo = threading.Lock()
 
 _CABECERA = re.compile(r"^\s*-?\s*(?P<resto>.*?)(?P<fecha>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2})\s*$")
+_CABECERA_CONVERSACION = re.compile(
+    r"^\s*(?P<remitente>.+?)(?P<fecha>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2})\s*$"
+)
 _PLANETA = re.compile(r"\[!\[\]\([^)]*\)\s*\[(?P<coords>\d+:\d+:\d+)\]\]\([^)]*\)")
 _ALIANZA = re.compile(r"\[(?P<nombre>[^\]]*)\]\([^)\s]*allianceInfo[^)\s]*\)")
+_COORDENADAS = re.compile(r"^\s*\[?(?P<coords>\d+:\d+:\d+)\]?\s*$")
 
 
 def analizar_mensajes(texto: str) -> list[dict]:
-    """Separa el texto pegado en mensajes. Cada uno empieza con una línea `- <remitente><dd.mm.aaaa hh:mm:ss>`.
+    """Separa mensajes copiados individualmente o una conversación completa del juego.
 
-    El pie del mensaje (alianza, nombre del remitente y coordenadas del planeta principal, con sus enlaces)
-    va al final del cuerpo; los enlaces se descartan.
+    En una conversación se ignora el texto anterior a `Imperio`; las líneas con un nombre pegado a una fecha
+    inician cada mensaje y su contenido continúa hasta la siguiente. Las coordenadas de la cabecera de
+    conversación solo se asignan al jugador indicado allí.
     """
+    lineas = texto.splitlines()
+    conversacion = _analizar_conversacion(lineas)
+    if conversacion is not None:
+        return conversacion
+
     bloques: list[tuple[re.Match, list[str]]] = []
-    for linea in texto.splitlines():
+    for linea in lineas:
         cabecera = _CABECERA.match(linea)
         if cabecera:
             bloques.append((cabecera, []))
@@ -36,6 +46,78 @@ def analizar_mensajes(texto: str) -> list[dict]:
         elif linea.strip():
             raise ValueError("El texto debe empezar con la cabecera del mensaje: '- remitente dd.mm.aaaa hh:mm:ss'")
     return [_mensaje(cabecera, cuerpo) for cabecera, cuerpo in bloques]
+
+
+def _analizar_conversacion(lineas: list[str]) -> Optional[list[dict]]:
+    """Analiza el formato de conversación con `Imperio<jugador>`, coordenadas y bloques nombre-fecha."""
+    inicios = [
+        indice for indice, linea in enumerate(lineas)
+        if _CABECERA_CONVERSACION.match(linea)
+    ]
+    if not inicios:
+        return None
+    primer_inicio = inicios[0]
+    perfil = None
+    indice_perfil = None
+    for indice, linea in enumerate(lineas[:primer_inicio]):
+        marca = re.search(r"Imperio", linea, re.IGNORECASE)
+        if marca:
+            perfil = linea[marca.end():].strip()
+            indice_perfil = indice
+            break
+    if indice_perfil is None or not perfil:
+        return None
+
+    coords = None
+    for linea in lineas[indice_perfil + 1:primer_inicio]:
+        coincidencia = _COORDENADAS.match(linea)
+        if coincidencia:
+            coords = coincidencia.group("coords")
+            break
+
+    mensajes = []
+    remitente = None
+    fecha = None
+    cuerpo: list[str] = []
+
+    def guardar_actual() -> None:
+        if remitente is None or fecha is None:
+            return
+        try:
+            momento = datetime.strptime(fecha, FORMATO_FECHA).isoformat(timespec="seconds")
+        except ValueError as exc:
+            raise ValueError(f"Fecha no válida en el mensaje de {remitente}: {fecha}") from exc
+        mensajes.append({
+            "fecha": momento,
+            "remitente": remitente,
+            "alianza": None,
+            "coords": coords if remitente.casefold() == perfil.casefold() else None,
+            "texto": "\n".join(cuerpo).strip(),
+            "jugador_id": None,
+        })
+
+    for linea in lineas[primer_inicio:]:
+        cabecera = _CABECERA_CONVERSACION.match(linea)
+        if cabecera:
+            guardar_actual()
+            remitente = cabecera.group("remitente").strip()
+            fecha = cabecera.group("fecha")
+            cuerpo = []
+        elif remitente is not None:
+            cuerpo.append(linea)
+    guardar_actual()
+    participantes = list(dict.fromkeys(
+        mensaje["remitente"] for mensaje in mensajes
+    ))
+    for mensaje in mensajes:
+        otros = [
+            nombre for nombre in participantes
+            if nombre.casefold() != mensaje["remitente"].casefold()
+        ]
+        if not otros and perfil.casefold() != mensaje["remitente"].casefold():
+            otros = [perfil]
+        mensaje["destinatario"] = ", ".join(otros) or None
+    return mensajes
 
 
 def _mensaje(cabecera: re.Match, cuerpo: list[str]) -> dict:
@@ -68,6 +150,7 @@ def _mensaje(cabecera: re.Match, cuerpo: list[str]) -> dict:
         "alianza": alianza_nombre,
         "coords": planeta.group("coords"),
         "texto": texto,
+        "destinatario": None,
         "jugador_id": None,
     }
 
@@ -76,14 +159,16 @@ def _planetas(detalle: Optional[dict]) -> set[str]:
     return {p["coords"] for p in n.parsear_planetas(detalle)}
 
 
-def identificar_jugador(contexto, nombre: str, coords: str) -> Optional[int]:
+def identificar_jugador(contexto, nombre: str, coords: Optional[str]) -> Optional[int]:
     """Id del jugador cuyo planeta principal está en `coords`.
 
-    Primero se prueba con los jugadores que se llaman igual; si ninguno lo tiene (p. ej. cambió de nombre),
-    se recorren todos. Devuelve None si no se encuentra.
+    Primero se prueba con los jugadores que se llaman igual; si ninguno tiene las coordenadas (p. ej. cambió
+    de nombre), se recorren todos. Si no hay coordenadas, solo se acepta un nombre exacto y único.
     """
     jugadores = contexto.jugadores()
     mismos = [j["id"] for j in jugadores if (j.get("name") or "").lower() == nombre.lower()]
+    if not coords:
+        return mismos[0] if len(mismos) == 1 else None
     for pid in mismos:
         try:
             if coords in _planetas(contexto.detalle_jugador(pid)):
@@ -101,11 +186,11 @@ def identificar_jugador(contexto, nombre: str, coords: str) -> Optional[int]:
     return None
 
 
-def crear_resolutor(contexto) -> Callable[[str, str], Optional[int]]:
+def crear_resolutor(contexto) -> Callable[[str, Optional[str]], Optional[int]]:
     """Resolutor con memoria (nombre, coordenadas) → id, para no repetir búsquedas al pegar varios mensajes."""
-    memoria: dict[tuple[str, str], Optional[int]] = {}
+    memoria: dict[tuple[str, Optional[str]], Optional[int]] = {}
 
-    def resolver(nombre: str, coords: str) -> Optional[int]:
+    def resolver(nombre: str, coords: Optional[str]) -> Optional[int]:
         clave = (nombre.lower(), coords)
         if clave not in memoria:
             memoria[clave] = identificar_jugador(contexto, nombre, coords)
@@ -131,7 +216,7 @@ def _clave(registro: dict) -> tuple[str, str, str]:
 def guardar_mensajes(
     archivo: Path,
     mensajes: list[dict],
-    resolver: Callable[[str, str], Optional[int]],
+    resolver: Callable[[str, Optional[str]], Optional[int]],
     ahora: Optional[datetime] = None,
 ) -> tuple[int, int]:
     """Añade los mensajes que no estén ya guardados. Devuelve (nuevos, ya_guardados).
@@ -141,19 +226,25 @@ def guardar_mensajes(
     ahora = ahora or datetime.now()
     with _cerrojo:
         registros = _leer(archivo)
-        conocidos = {_clave(r) for r in registros}
+        conocidos = {_clave(r): r for r in registros}
         nuevos = repetidos = 0
+        enriquecidos = False
         for mensaje in mensajes:
-            if _clave(mensaje) in conocidos:
+            clave = _clave(mensaje)
+            if clave in conocidos:
                 repetidos += 1
+                existente = conocidos[clave]
+                if mensaje.get("destinatario") and not existente.get("destinatario"):
+                    existente["destinatario"] = mensaje["destinatario"]
+                    enriquecidos = True
                 continue
             registro = dict(mensaje)
             registro["jugador_id"] = resolver(mensaje["remitente"], mensaje["coords"])
             registro["guardado"] = ahora.isoformat(timespec="seconds")
             registros.append(registro)
-            conocidos.add(_clave(mensaje))
+            conocidos[clave] = registro
             nuevos += 1
-        if nuevos:
+        if nuevos or enriquecidos:
             registros.sort(key=_clave)
             archivo.parent.mkdir(parents=True, exist_ok=True)
             temporal = archivo.with_suffix(".tmp")

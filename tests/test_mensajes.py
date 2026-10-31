@@ -1,9 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from analizador import mensajes as m
 from analizador.cliente import ErrorApi
+from analizador.consultas import mensajes as consulta_mensajes
 
 EJEMPLO = (
     "- juradin31.10.2026 20:05:42\n"
@@ -11,6 +14,20 @@ EJEMPLO = (
     "[Imperio](https://s268-es.ogame.gameforge.com/game/allianceInfo.php?allianceId=500522)juradin"
     "[![](https://gf1.geo.gfsrv.net/cdn3b/ec7d0e284af9927de8c785978b4c77.png)[2:1:12]]"
     "(https://s268-es.ogame.gameforge.com/game/index.php?page=ingame&component=galaxy&galaxy=2&system=1&position=12)\n"
+)
+
+CONVERSACION = (
+    "texto previo que se debe ignorar\n"
+    "Imperiojuradin\n"
+    "[2:1:12]\n"
+    "juradin31.10.2026 20:05:42\n"
+    "Felicidades, nerd, sal de casa un poco que te gastas toda la paguita en mo\n"
+    "Cascanueces31.10.2026 20:09:56\n"
+    "Gracias por el consejo. Cuando acabes las clases de castellano, me explicas también esa palabra inglesa que has usado.\n"
+    "juradin31.10.2026 20:24:52\n"
+    "Comprate un diccionario con MO.\n"
+    "Cascanueces31.10.2026 20:27:14\n"
+    "Mira que sois de cristal y frágiles los niños de esta época. En mi época veníamos llorados a OGame; tenéis que madurar.\n"
 )
 
 
@@ -61,6 +78,24 @@ class AnalisisTest(unittest.TestCase):
         self.assertIsNone(primero["alianza"])
         self.assertEqual(primero["texto"], "Hola")
         self.assertEqual(segundo["remitente"], "juradin")
+
+    def test_separa_conversacion_por_nombre_pegado_a_fecha(self):
+        mensajes = m.analizar_mensajes(CONVERSACION)
+        self.assertEqual(
+            [(mensaje["remitente"], mensaje["fecha"], mensaje["texto"]) for mensaje in mensajes],
+            [
+                ("juradin", "2026-10-31T20:05:42", "Felicidades, nerd, sal de casa un poco que te gastas toda la paguita en mo"),
+                ("Cascanueces", "2026-10-31T20:09:56", "Gracias por el consejo. Cuando acabes las clases de castellano, me explicas también esa palabra inglesa que has usado."),
+                ("juradin", "2026-10-31T20:24:52", "Comprate un diccionario con MO."),
+                ("Cascanueces", "2026-10-31T20:27:14", "Mira que sois de cristal y frágiles los niños de esta época. En mi época veníamos llorados a OGame; tenéis que madurar."),
+            ],
+        )
+        self.assertEqual([mensaje["coords"] for mensaje in mensajes], ["2:1:12", None, "2:1:12", None])
+        self.assertEqual(
+            [mensaje["destinatario"] for mensaje in mensajes],
+            ["Cascanueces", "juradin", "Cascanueces", "juradin"],
+        )
+        self.assertTrue(all(mensaje["alianza"] is None for mensaje in mensajes))
 
     def test_sin_planeta_falla_con_mensaje_claro(self):
         with self.assertRaisesRegex(ValueError, "planeta"):
@@ -121,6 +156,41 @@ class AlmacenTest(unittest.TestCase):
             m.guardar_mensajes(archivo, m.analizar_mensajes(EJEMPLO), lambda n_, c: None)
             self.assertEqual(len(m.buscar(archivo, "jura")), 1)
             self.assertEqual(m.buscar(archivo, "99"), [])
+
+    def test_reimportar_enriquece_destinatario_de_mensajes_ya_guardados(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archivo = Path(tmp) / m.NOMBRE_ARCHIVO
+            mensajes_anteriores = m.analizar_mensajes(CONVERSACION)
+            for mensaje in mensajes_anteriores:
+                mensaje.pop("destinatario")
+            m.guardar_mensajes(archivo, mensajes_anteriores, lambda nombre, coords: 100604)
+
+            nuevos, repetidos = m.guardar_mensajes(
+                archivo,
+                m.analizar_mensajes(CONVERSACION),
+                lambda nombre, coords: 100604,
+            )
+
+            guardados = m.buscar(archivo, "100604")
+            self.assertEqual((nuevos, repetidos), (0, 4))
+            self.assertEqual([registro["destinatario"] for registro in guardados],
+                             ["Cascanueces", "juradin", "Cascanueces", "juradin"])
+
+    def test_consulta_incluye_destinatario(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mensajes = m.analizar_mensajes(CONVERSACION)
+            m.guardar_mensajes(
+                Path(tmp) / "es-268" / "mensajes" / m.NOMBRE_ARCHIVO,
+                mensajes,
+                lambda nombre, coords: 100604 if nombre == "Cascanueces" else 7,
+            )
+            contexto = SimpleNamespace(universo=SimpleNamespace(clave="es-268"))
+
+            with mock.patch.object(consulta_mensajes, "CARPETA_SALIDA", Path(tmp)):
+                resultado = consulta_mensajes.mensajes_jugador(contexto, "100604")
+
+            self.assertEqual([fila["destinatario"] for fila in resultado.datos],
+                             ["juradin", "juradin"])
 
 
 if __name__ == "__main__":

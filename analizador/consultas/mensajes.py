@@ -45,6 +45,7 @@ def mensajes_jugador(contexto, jugador):
         {
             "fecha": datetime.fromisoformat(r["fecha"]).strftime("%d/%m/%Y %H:%M:%S"),
             "remitente": r["remitente"],
+            "destinatario": r.get("destinatario") or "",
             "id": "" if r.get("jugador_id") is None else r["jugador_id"],
             "alianza": r.get("alianza") or "",
             "coords": r["coords"],
