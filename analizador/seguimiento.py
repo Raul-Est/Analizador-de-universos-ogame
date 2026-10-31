@@ -17,7 +17,6 @@ from .cliente import ErrorApi
 
 TIPO_DESTRUIDOS = 6
 TIPO_PERDIDOS = 4
-ETIQUETA_ALIANZA = "MD/ML"
 VERSION_CAPTURA = 3  # 2: tipos 6 y 4; 3: marcas de tiempo por tipo. Las capturas anteriores se descartan
 INTERVALO_API = 3600  # el highscore se regenera cada hora (Expires = Last-Modified + 1 h)
 MARGEN = 3  # segundos de cortesía tras la hora esperada
@@ -186,13 +185,8 @@ class Seguimiento:
         return jugadores, tags
 
     def _publicar(self, previa: dict, nueva: dict) -> None:
-        ids = set(previa["destruidos"]) | set(previa["perdidos"]) | set(nueva["destruidos"]) | set(nueva["perdidos"])
-        jugadores, tags = self._nombres(list(ids))
-        ids_alianza = {
-            pid for pid, jugador in jugadores.items()
-            if tags.get(jugador.get("alliance")) == ETIQUETA_ALIANZA
-        }
-        cambios = calcular_cambios(previa, nueva, self.top, ids_alianza)
+        cambios = calcular_cambios(previa, nueva, self.top)
+        jugadores, tags = self._nombres([c["id"] for c in cambios])
         filas = []
         for c in cambios:
             jugador = jugadores.get(c["id"], {})

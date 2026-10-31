@@ -32,7 +32,7 @@ class CambiosTest(unittest.TestCase):
         cambios = s.calcular_cambios(antes, ahora, top=1, ids_incluidos={2, 3})
         self.assertEqual([(c["id"], c["puntos"]) for c in cambios], [(2, 100), (2, -100)])
 
-    def test_publica_solo_jugadores_de_la_alianza_configurada(self):
+    def test_publica_cambios_de_jugadores_de_cualquier_alianza(self):
         class Contexto:
             def jugadores(self):
                 return [
@@ -41,10 +41,10 @@ class CambiosTest(unittest.TestCase):
                 ]
 
             def alianzas(self):
-                return [{"id": 10, "tag": "OTRA"}, {"id": 20, "tag": s.ETIQUETA_ALIANZA}]
+                return [{"id": 10, "tag": "OTRA"}, {"id": 20, "tag": "MD/ML"}]
 
         actualizaciones = []
-        seguimiento = s.Seguimiento(Contexto(), 1, actualizaciones.append, lambda _: None)
+        seguimiento = s.Seguimiento(Contexto(), 10, actualizaciones.append, lambda _: None)
         previa = captura(0, {1: 0, 2: 0}, {1: 0, 2: 0})
         nueva = captura(1, {1: 1000, 2: 100}, {1: 1000, 2: 100})
 
@@ -52,7 +52,7 @@ class CambiosTest(unittest.TestCase):
 
         self.assertEqual(
             [(fila["id"], fila["puntos"]) for fila in actualizaciones[0]["filas"]],
-            [(2, 100), (2, -100)],
+            [(1, 1000), (2, 100), (1, -1000), (2, -100)],
         )
 
 
