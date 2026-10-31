@@ -66,7 +66,7 @@ Los ficheros exportados se guardan en `output/<idioma>-<numero>/` con la fecha e
 
 ## Seguimiento en vivo
 
-La opción `seguimiento_vivo` abre una ventana con la hora y la fecha de cada actualización y, debajo, los jugadores que han **destruido** puntos militares (verde, `+`, highscore tipo 6) y los que los han **perdido** (rojo, `-`, tipo 4), con su alianza. Se queda abierta y se actualiza sola hasta que la cierres; al cerrarla ofrece exportar los cambios recibidos.
+La opción `seguimiento_vivo` abre una ventana con la hora y la fecha de cada actualización y, debajo, los jugadores de la alianza **MD/ML** que han **destruido** puntos militares (verde, `+`, highscore tipo 6) y los que los han **perdido** (rojo, `-`, tipo 4). El filtro se aplica antes de seleccionar los mayores cambios, y se queda abierta y se actualiza sola hasta que la cierres; al cerrarla ofrece exportar los cambios recibidos.
 
 - La API de OGame regenera el highscore **cada hora**. El programa calcula cuándo toca la siguiente actualización, hace una comprobación de seguridad cada 5 minutos mientras espera y, al pasar la hora esperada, sondea cada 15 s hasta que cambia el `timestamp` y lo descarga al instante.
 - La API regenera cada tipo de highscore en un segundo distinto (el de perdidos, tipo 4, unos 35 s después del de destruidos, tipo 6). Una captura solo se considera nueva cuando **ambos** se han actualizado; si no, los rojos salían vacíos o con datos de la hora anterior. La hora mostrada es la del último ranking regenerado.
@@ -113,6 +113,16 @@ Todo lo relativo a flotas vive en una sola carpeta por universo, `output/<univer
 - Cada informe que analizas se guarda automáticamente en `output/<universo>/flotas/informes.json` (lista de `{jugador, guardado, informe}`, con fecha y hora). Si pegas uno idéntico al último guardado de ese jugador no se duplica. El archivo está ignorado por git.
 - `ultima_flota` (opción 16) pide el nombre del jugador (vale una parte, sin distinguir mayúsculas) y devuelve su informe más reciente (por la fecha del informe; si no la trae, por la de guardado): fecha de guardado, la cabecera tal como se muestra al analizar (`Jugador`, `Estado`, `Coordenadas`, `Ubicación`, `Fecha del informe`, `Clase`, `Recursos`, `Botín`, `Flotas`...), la lista de naves y después el resto de secciones del informe (recursos, campo de escombros, defensa, edificios, investigación y forma de vida). Al exportarla, el archivo se llama `ultima_flota_<jugador>_dd-mm-aaaa.<fmt>` (en `output/<universo>/flotas/`). Si el nombre coincide con varios jugadores, los lista; si no hay informes, lo indica.
 - Formato de exportación: JSON conserva la estructura `{cabecera, mensajes, secciones}`; CSV y MD usan una fila por dato con las columnas `seccion`, `concepto`, `valor`.
+
+## Mensajes del juego
+
+`mensajes_formulario` abre en el navegador un formulario local (igual que el de espionaje). Pega uno o varios mensajes tal cual los copias del juego, empezando cada uno por su cabecera `- remitente dd.mm.aaaa hh:mm:ss`, y pulsa **Guardar**. Se guardan en `output/<universo>/mensajes/mensajes.json`:
+
+- Fecha de recepción, remitente, alianza, texto del mensaje (sin enlaces).
+- Coordenadas del planeta principal del remitente (del enlace del pie) y, a partir de ellas, el **id del jugador**: primero se busca entre los jugadores con ese nombre; si ninguno tiene ese planeta (p. ej. cambió de nombre), se recorren todos los jugadores. Esa búsqueda completa hace una petición por jugador la primera vez (la caché de jugadores dura 6 h). Si no se encuentra, el mensaje queda sin id.
+- Un mensaje repetido (misma fecha, remitente y texto) no se duplica.
+
+`mensajes_jugador` (pide nombre o parte del nombre, o id) devuelve sus mensajes ordenados por fecha. Como se vinculan por id, siguen apareciendo tras un cambio de nombre. Los mensajes sin id se buscan por el nombre con el que se recibieron.
 
 ## Añadir una consulta nueva
 

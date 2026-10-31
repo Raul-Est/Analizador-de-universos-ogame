@@ -17,6 +17,7 @@ from .cliente import ErrorApi
 
 TIPO_DESTRUIDOS = 6
 TIPO_PERDIDOS = 4
+ETIQUETA_ALIANZA = "MD/ML"
 VERSION_CAPTURA = 3  # 2: tipos 6 y 4; 3: marcas de tiempo por tipo. Las capturas anteriores se descartan
 INTERVALO_API = 3600  # el highscore se regenera cada hora (Expires = Last-Modified + 1 h)
 MARGEN = 3  # segundos de cortesía tras la hora esperada
@@ -94,17 +95,25 @@ def guardar_captura(archivo: Optional[Path], captura: dict) -> None:
     archivo.write_text(json.dumps(captura), encoding="utf-8")
 
 
-def calcular_cambios(anterior: dict, nueva: dict, top: int = 10) -> list[dict]:
+def calcular_cambios(
+    anterior: dict,
+    nueva: dict,
+    top: int = 10,
+    ids_incluidos: Optional[set[int]] = None,
+) -> list[dict]:
     """Puntos ganados entre dos capturas: positivos (destruidos) primero y negativos (perdidos) después.
 
     Cada lado se ordena de mayor a menor magnitud y se limita a `top` jugadores.
     Los jugadores que no estaban en la captura anterior se ignoran (no hay base de comparación).
+    Si se indica `ids_incluidos`, solo se consideran esos jugadores antes de aplicar el límite.
     """
     ganados: list[dict] = []
     perdidos: list[dict] = []
     for clave, destino, signo in (("destruidos", ganados, 1), ("perdidos", perdidos, -1)):
         antes = anterior[clave]
         for pid, puntos in nueva[clave].items():
+            if ids_incluidos is not None and pid not in ids_incluidos:
+                continue
             if pid in antes and puntos > antes[pid]:
                 destino.append({"id": pid, "puntos": signo * (puntos - antes[pid])})
     ganados.sort(key=lambda c: -c["puntos"])
@@ -177,8 +186,13 @@ class Seguimiento:
         return jugadores, tags
 
     def _publicar(self, previa: dict, nueva: dict) -> None:
-        cambios = calcular_cambios(previa, nueva, self.top)
-        jugadores, tags = self._nombres([c["id"] for c in cambios])
+        ids = set(previa["destruidos"]) | set(previa["perdidos"]) | set(nueva["destruidos"]) | set(nueva["perdidos"])
+        jugadores, tags = self._nombres(list(ids))
+        ids_alianza = {
+            pid for pid, jugador in jugadores.items()
+            if tags.get(jugador.get("alliance")) == ETIQUETA_ALIANZA
+        }
+        cambios = calcular_cambios(previa, nueva, self.top, ids_alianza)
         filas = []
         for c in cambios:
             jugador = jugadores.get(c["id"], {})

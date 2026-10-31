@@ -26,6 +26,35 @@ class CambiosTest(unittest.TestCase):
         ahora = captura(1, {1: 10, 2: 500}, {1: 10, 2: 500})
         self.assertEqual(s.calcular_cambios(antes, ahora), [])
 
+    def test_filtra_antes_de_aplicar_el_limite_top(self):
+        antes = captura(0, {1: 0, 2: 0, 3: 0}, {1: 0, 2: 0, 3: 0})
+        ahora = captura(1, {1: 1000, 2: 100, 3: 50}, {1: 1000, 2: 100, 3: 50})
+        cambios = s.calcular_cambios(antes, ahora, top=1, ids_incluidos={2, 3})
+        self.assertEqual([(c["id"], c["puntos"]) for c in cambios], [(2, 100), (2, -100)])
+
+    def test_publica_solo_jugadores_de_la_alianza_configurada(self):
+        class Contexto:
+            def jugadores(self):
+                return [
+                    {"id": 1, "name": "Fuera", "alliance": 10},
+                    {"id": 2, "name": "Dentro", "alliance": 20},
+                ]
+
+            def alianzas(self):
+                return [{"id": 10, "tag": "OTRA"}, {"id": 20, "tag": s.ETIQUETA_ALIANZA}]
+
+        actualizaciones = []
+        seguimiento = s.Seguimiento(Contexto(), 1, actualizaciones.append, lambda _: None)
+        previa = captura(0, {1: 0, 2: 0}, {1: 0, 2: 0})
+        nueva = captura(1, {1: 1000, 2: 100}, {1: 1000, 2: 100})
+
+        seguimiento._publicar(previa, nueva)
+
+        self.assertEqual(
+            [(fila["id"], fila["puntos"]) for fila in actualizaciones[0]["filas"]],
+            [(2, 100), (2, -100)],
+        )
+
 
 class FormatoYEsperaTest(unittest.TestCase):
     def test_formatear_puntos(self):
