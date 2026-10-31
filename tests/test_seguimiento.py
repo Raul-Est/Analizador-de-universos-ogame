@@ -9,7 +9,7 @@ from analizador import seguimiento as s
 
 
 def captura(ts, destruidos, perdidos):
-    return {"universo": "es-268", "version": s.VERSION_CAPTURA, "timestamp": ts, "destruidos": destruidos, "perdidos": perdidos}
+    return {"universo": "es-268", "version": s.VERSION_CAPTURA, "timestamp": ts, "ts_destruidos": ts, "ts_perdidos": ts, "destruidos": destruidos, "perdidos": perdidos}
 
 
 class CambiosTest(unittest.TestCase):
@@ -40,6 +40,13 @@ class FormatoYEsperaTest(unittest.TestCase):
 
 
 class CapturaTest(unittest.TestCase):
+    def test_nueva_solo_si_se_actualizan_ambos_rankings(self):
+        previa = {**captura(100, {}, {}), "ts_destruidos": 100, "ts_perdidos": 135}
+        a_medias = {**previa, "ts_destruidos": 3700, "ts_perdidos": 135}
+        completa = {**previa, "ts_destruidos": 3700, "ts_perdidos": 3735}
+        self.assertFalse(s.es_nueva(previa, previa))
+        self.assertFalse(s.es_nueva(previa, a_medias))
+        self.assertTrue(s.es_nueva(previa, completa))
     def test_guardar_leer_y_descartar_otro_universo(self):
         with tempfile.TemporaryDirectory() as tmp:
             archivo = Path(tmp) / "c.json"

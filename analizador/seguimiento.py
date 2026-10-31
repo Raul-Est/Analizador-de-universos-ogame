@@ -17,7 +17,7 @@ from .cliente import ErrorApi
 
 TIPO_DESTRUIDOS = 6
 TIPO_PERDIDOS = 4
-VERSION_CAPTURA = 2  # las capturas anteriores usaban tipos de highscore equivocados (5 y 6)
+VERSION_CAPTURA = 3  # 2: tipos 6 y 4; 3: marcas de tiempo por tipo. Las capturas anteriores se descartan
 INTERVALO_API = 3600  # el highscore se regenera cada hora (Expires = Last-Modified + 1 h)
 MARGEN = 3  # segundos de cortesía tras la hora esperada
 SONDEO_ESPERA = 300  # comprobación de seguridad mientras se espera la próxima actualización
@@ -47,13 +47,23 @@ def descargar_captura(contexto) -> dict:
     cliente = contexto.cliente
     destruidos = cliente.get_json("highscore.xml", category=1, type=TIPO_DESTRUIDOS)
     perdidos = cliente.get_json("highscore.xml", category=1, type=TIPO_PERDIDOS)
+    ts_destruidos = n.marca_tiempo(destruidos) or int(time.time())
+    ts_perdidos = n.marca_tiempo(perdidos) or int(time.time())
     return {
         "universo": contexto.universo.clave,
         "version": VERSION_CAPTURA,
-        "timestamp": n.marca_tiempo(destruidos) or int(time.time()),
+        # cada tipo se regenera en un segundo distinto (el de perdidos va el último)
+        "timestamp": max(ts_destruidos, ts_perdidos),
+        "ts_destruidos": ts_destruidos,
+        "ts_perdidos": ts_perdidos,
         "destruidos": _puntuaciones(destruidos),
         "perdidos": _puntuaciones(perdidos),
     }
+
+
+def es_nueva(previa: dict, nueva: dict) -> bool:
+    """Una captura es nueva solo cuando se han regenerado los dos rankings."""
+    return nueva["ts_destruidos"] > previa["ts_destruidos"] and nueva["ts_perdidos"] > previa["ts_perdidos"]
 
 
 def leer_captura(archivo: Optional[Path], clave_universo: str) -> Optional[dict]:
@@ -68,6 +78,8 @@ def leer_captura(archivo: Optional[Path], clave_universo: str) -> Optional[dict]
             "universo": clave_universo,
             "version": VERSION_CAPTURA,
             "timestamp": int(datos["timestamp"]),
+            "ts_destruidos": int(datos["ts_destruidos"]),
+            "ts_perdidos": int(datos["ts_perdidos"]),
             "destruidos": {int(k): v for k, v in datos["destruidos"].items()},
             "perdidos": {int(k): v for k, v in datos["perdidos"].items()},
         }
@@ -196,7 +208,7 @@ class Seguimiento:
                 if actual is None and self.parar.wait(REINTENTO_ERROR):
                     return
             previa = leer_captura(self._archivo(), self.contexto.universo.clave)
-            if previa and previa["timestamp"] < actual["timestamp"]:
+            if previa and es_nueva(previa, actual):
                 self._publicar(previa, actual)
             guardar_captura(self._archivo(), actual)
             self._informar(actual)
@@ -204,7 +216,7 @@ class Seguimiento:
                 nueva = self._descargar()
                 if nueva is None:
                     continue
-                if nueva["timestamp"] > actual["timestamp"]:
+                if es_nueva(actual, nueva):
                     self._publicar(actual, nueva)
                     guardar_captura(self._archivo(), nueva)
                     actual = nueva

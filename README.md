@@ -67,6 +67,7 @@ Los ficheros exportados se guardan en `output/<idioma>-<numero>/` con la fecha e
 La opción `seguimiento_vivo` abre una ventana con la hora y la fecha de cada actualización y, debajo, los jugadores que han **destruido** puntos militares (verde, `+`, highscore tipo 6) y los que los han **perdido** (rojo, `-`, tipo 4), con su alianza. Se queda abierta y se actualiza sola hasta que la cierres; al cerrarla ofrece exportar los cambios recibidos.
 
 - La API de OGame regenera el highscore **cada hora**. El programa calcula cuándo toca la siguiente actualización, hace una comprobación de seguridad cada 5 minutos mientras espera y, al pasar la hora esperada, sondea cada 15 s hasta que cambia el `timestamp` y lo descarga al instante.
+- La API regenera cada tipo de highscore en un segundo distinto (el de perdidos, tipo 4, unos 35 s después del de destruidos, tipo 6). Una captura solo se considera nueva cuando **ambos** se han actualizado; si no, los rojos salían vacíos o con datos de la hora anterior. La hora mostrada es la del último ranking regenerado.
 - La última captura se guarda en `output/.estado/<universo>/puntos_ultima_captura.json` (con cabecera de universo). Al reabrir la ventana, si ha habido actualizaciones desde entonces, se muestran de inmediato; la primera vez hay que esperar a la siguiente actualización de la API.
 - Parámetro `top`: jugadores a mostrar en cada lado por actualización (10 por defecto).
 - Necesita `tkinter`, que viene con el instalador oficial de Python para Windows.
